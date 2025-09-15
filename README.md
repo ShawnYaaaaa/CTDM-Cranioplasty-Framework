@@ -29,21 +29,20 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 
 ---
 
-## Framework
-
-
+## Framework  
+<img src="images/Framework.png" alt="Framework" height="450" style="margin-right:50px;">
 
 ---
 
 ## Sample Images
 nrrd image:  
-![Nrrd images](images/ITK-SNAP_for_nrrd.png)
+<img src="images/ITK-SNAP_for_nrrd.png" height="450" style="margin-right:50px;">
 
-stl image:
-![STL images](images/Blender_for_stl.png)
+stl image:  
+<img src="images/Blender_for_stl.png" height="450" style="margin-right:50px;">
 
-xyz image:
-![Sample images](images/Open3D_for_xyz.png)
+xyz image:  
+<img src="images/Open3D_for_xyz.png" height="450" style="margin-right:50px;">
 
 ## Expected Outcomes
 ```bash
