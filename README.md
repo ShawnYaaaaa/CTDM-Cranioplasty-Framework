@@ -1,3 +1,7 @@
+> [!WARNING]
+> - Please view this repository in "bright appearance" mode to ensure optimal readability of all content.
+> - This Git repository is for reference only. **No license granted for any usage or redistribution.**
+
 # CTDM-Cranioplasty-Framework
 Cranioplasty Transformer Diffusion Model (CTDM) — A multimodal clinical system based on Transformer and Diffusion Models for generating cranial defect reconstruction point clouds and diagnostic text.
 
@@ -23,12 +27,23 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 - **BLIP (Bootstrapping Language-Image Pre-training):** Improves cross-modal alignment between images and language. 
 - **Point-Grounded Text Encoder & Decoder:** Facilitates tight coupling between spatial geometry and clinical linguistic representation.  
 
+---
+
+## Framework
+
+
 
 ---
 
-## Performance
-Sample images:  
-![Sample images](images/ITK-SNAP_for_nrrd.png)
+## Sample Images
+nrrd image:  
+![Nrrd images](images/ITK-SNAP_for_nrrd.png)
+
+stl image:
+![STL images](images/Blender_for_stl.png)
+
+xyz image:
+![Sample images](images/Open3D_for_xyz.png)
 
 ## Expected Outcomes
 ```bash
