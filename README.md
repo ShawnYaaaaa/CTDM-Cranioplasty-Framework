@@ -22,12 +22,15 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 - **BLIP (Bootstrapping Language-Image Pre-training):** Improves cross-modal alignment between images and language. 
 - **Point-Grounded Text Encoder & Decoder:** Facilitates tight coupling between spatial geometry and clinical linguistic representation.  
 
+
 ---
 
 ## Expected Outcomes
+```bash
 - High-precision cranial reconstruction with improved geometric and textural fidelity.  
 - Automatic generation of standardized, clinically valuable diagnostic text.  
 - Reduced burden on medical professionals with accelerated preoperative planning.  
 - Enhanced decision-making accuracy for cranioplasty procedures.  
+```
 
 ---
