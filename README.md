@@ -8,7 +8,8 @@ With the rapid success of the **Transformer** framework, multimodal learning has
 
 To address these challenges, we propose the **Cranioplasty Transformer Diffusion Model (CTDM)**, an innovative framework integrating Transformer-based architectures and Diffusion Models for precise cranial defect reconstruction and clinically relevant diagnostic text generation.
 
----
+--- 
+
 
 ## Key Module
 - **Image Feature Extraction:** The current implementation focuses on medical imaging data as the primary modality. A tailored **autoencoder backbone** is used to embed images into a compact latent space that preserves structural fidelity.
@@ -24,6 +25,10 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 
 
 ---
+
+## Performance
+Sample images:  
+![Sample images](images/ITK-SNAP_for_nrrd.png)
 
 ## Expected Outcomes
 ```bash
