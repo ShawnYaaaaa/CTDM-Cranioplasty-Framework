@@ -10,13 +10,16 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 
 ---
 
-## Key Features
-- **Multimodal Learning:** Integration of 3D point clouds, medical images, and clinical text.  
-- **BLIP (Bootstrapping Language-Image Pre-training):** Improves cross-modal alignment between images and language.  
-- **Latent Diffusion Model (LDM):** Enables high-quality visual and structural reconstruction.  
-- **PointNet++:** Provides robust point cloud feature extraction and geometry learning.  
-- **SNOMED CT Vocabulary:** Guarantees medical domain relevance and standardized terminology.  
-- **Custom Loss Functions (PTC/PTM):** Point-Text Contrastive (PTC) and Point-Text Matching (PTM) losses enhance semantic consistency across modalities.  
+## Key Module
+- **Image Feature Extraction:** The current implementation focuses on medical imaging data as the primary modality. A tailored **autoencoder backbone** is used to embed images into a compact latent space that preserves structural fidelity.
+- **PointCloudAutoencoder (adapted for imaging):** Serves as the latent-space encoder–decoder, enabling the mapping of medical images into structured latent representations and reconstruction-ready outputs.
+- **Diffusion 3D UNet:** An enhanced UNet with residual and attention layers, operating in latent space. It learns image-conditioned denoising steps for improved generation quality and structural consistency.
+- **Conditional Encoding:** Image-derived embeddings serve as conditions injected into the diffusion process, ensuring clinically consistent reconstructions.
+- **Latent Diffusion Model (LDM):** Provides high-quality image reconstruction and enables scalable generative training in compressed latent space, reducing computational cost while preserving detail.
+- **Self-Attention and Transformer Blocks:** Incorporated into the encoder–decoder pipeline, these modules improve long-range dependencies and enhance image feature integration.
+- **Multimodal Learning:** Integration of 3D point clouds, medical images, and clinical text.
+- **SNOMED CT Vocabulary:** Guarantees medical domain relevance and standardized terminology for downstream training.  
+- **BLIP (Bootstrapping Language-Image Pre-training):** Improves cross-modal alignment between images and language. 
 - **Point-Grounded Text Encoder & Decoder:** Facilitates tight coupling between spatial geometry and clinical linguistic representation.  
 
 ---
@@ -28,5 +31,3 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 - Enhanced decision-making accuracy for cranioplasty procedures.  
 
 ---
-
-## Suggested Project Structure
