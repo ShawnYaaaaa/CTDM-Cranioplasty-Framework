@@ -1,5 +1,5 @@
 > [!WARNING]
-> - Please view this repository in "bright appearance" mode to ensure optimal readability of all content.
+> - Please view this repository in ***"bright appearance"*** mode to ensure optimal readability of all content.
 > - This Git repository is for reference only. **No license granted for any usage or redistribution.**
 
 # CTDM-Cranioplasty-Framework
@@ -14,6 +14,10 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 
 --- 
 
+## Framework  
+<img src="images/Framework.png" alt="Framework" height="450" style="margin-right:50px;">
+
+---
 
 ## Key Module
 - **Image Feature Extraction:** The current implementation focuses on medical imaging data as the primary modality. A tailored **autoencoder backbone** is used to embed images into a compact latent space that preserves structural fidelity.
@@ -29,27 +33,27 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 
 ---
 
-## Framework  
-<img src="images/Framework.png" alt="Framework" height="450" style="margin-right:50px;">
+## Sample Images
+nrrd image:  
+<img src="images/ITK-SNAP_for_nrrd.png" height="350" style="margin-right:50px;">
+
+stl image:  
+<img src="images/Blender_for_stl.png" height="350" style="margin-right:50px;">
+
+xyz image:  
+<img src="images/Open3D_for_xyz.png" height="350" style="margin-right:50px;">
 
 ---
 
-## Sample Images
-nrrd image:  
-<img src="images/ITK-SNAP_for_nrrd.png" height="450" style="margin-right:50px;">
-
-stl image:  
-<img src="images/Blender_for_stl.png" height="450" style="margin-right:50px;">
-
-xyz image:  
-<img src="images/Open3D_for_xyz.png" height="450" style="margin-right:50px;">
-
-## Expected Outcomes
+## Performance
+Expected Outcomes:
 ```bash
 - High-precision cranial reconstruction with improved geometric and textural fidelity.  
 - Automatic generation of standardized, clinically valuable diagnostic text.  
 - Reduced burden on medical professionals with accelerated preoperative planning.  
 - Enhanced decision-making accuracy for cranioplasty procedures.  
 ```
+
+<img src="images/Results_LDM.png" height="500" style="margin-right:50px;">
 
 ---
