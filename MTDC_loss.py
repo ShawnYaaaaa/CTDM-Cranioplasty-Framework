@@ -18,7 +18,7 @@ def chamfer_distance(x, y):
 def chamfer_distance2(x, y):
     """
     計算 Chamfer Distance
-    返回: (總距離, (x到y的距離, y到x的距離))
+    回傳: (總距離, (x到y的距離, y到x的距離))
     """
     x = x.to(device)
     y = y.to(device)
@@ -43,15 +43,15 @@ def chamfer_distance2(x, y):
 
 def compute_local_density(points, k=8, method='knn'):
     """
-    计算点云的局部密度
+    計算點雲的局部密度
     
     Args:
-        points: 点云张量 [B, N, 3] 或 [N, 3]
-        k: 用于密度计算的邻居数量
-        method: 密度计算方法 ('knn', 'gaussian', 'inverse_distance')
+        points: 點雲張量 [B, N, 3] 或 [N, 3]
+        k: 用於密度計算的鄰居數量
+        method: 密度計算方法 ('knn', 'gaussian', 'inverse_distance')
     
     Returns:
-        density: 每个点的局部密度 [B, N] 或 [N]
+        density: 每個點的局部密度 [B, N] 或 [N]
     """
     if points.dim() == 3:
         batch_size, num_points, _ = points.shape
@@ -68,37 +68,37 @@ def compute_local_density(points, k=8, method='knn'):
 
 def compute_single_density(points, k=8, method='knn'):
     """
-    计算单个点云的局部密度
+    計算單個點雲的局部密度
     
     Args:
-        points: 点云张量 [N, 3]
-        k: 邻居数量
-        method: 密度计算方法
+        points: 點雲張量 [N, 3]
+        k: 鄰居數量
+        method: 密度計算方法
     
     Returns:
-        density: 每个点的局部密度 [N]
+        density: 每個點的局部密度 [N]
     """
     device = points.device
     points_np = points.detach().cpu().numpy()
     
-    # 使用 KDTree 查找邻居
+    # 使用 KDTree 查找鄰居
     tree = cKDTree(points_np)
-    distances, indices = tree.query(points_np, k=k+1)  # +1 因为包含自己
+    distances, indices = tree.query(points_np, k=k+1)  # +1 因為包含自己
     distances = distances[:, 1:]  # 排除自己
     
     if method == 'knn':
-        # 基于 k 邻居平均距离的密度
+        # 基於 k 鄰居平均距離的密度
         mean_distances = np.mean(distances, axis=1)
         density = 1.0 / (mean_distances + 1e-8)
         
     elif method == 'gaussian':
-        # 基于高斯核的密度
-        sigma = np.mean(distances[:, -1])  # 使用最远邻居距离作为 sigma
+        # 基於高斯核的密度
+        sigma = np.mean(distances[:, -1])  # 使用最遠鄰居距離作為 sigma
         weights = np.exp(-distances**2 / (2 * sigma**2))
         density = np.sum(weights, axis=1)
         
     elif method == 'inverse_distance':
-        # 基于距离倒数的密度
+        # 基於距離倒數的密度
         inv_distances = 1.0 / (distances + 1e-8)
         density = np.sum(inv_distances, axis=1)
     
@@ -110,19 +110,19 @@ def compute_single_density(points, k=8, method='knn'):
 
 def density_chamfer_distance(x, y, k=8, density_method='knn', alpha=1.0, beta=1.0):
     """
-    计算 Density Chamfer Distance (DCD)
+    計算 Density Chamfer Distance (DCD)
     
     Args:
-        x: 源点云 [B, N, 3]
-        y: 目标点云 [B, M, 3]
-        k: 用于密度计算的邻居数量
-        density_method: 密度计算方法 ('knn', 'gaussian', 'inverse_distance')
-        alpha: 距离项权重
-        beta: 密度项权重
+        x: 原始點雲 [B, N, 3]
+        y: 目標點雲 [B, M, 3]
+        k: 用於密度計算的鄰居數量
+        density_method: 密度計算方法 ('knn', 'gaussian', 'inverse_distance')
+        alpha: 距離項權重
+        beta: 密度項權重
     
     Returns:
-        total_dcd: 总的密度倒角距离
-        (dcd_x, dcd_y): x到y和y到x的密度倒角距离
+        total_dcd: 總的密度倒角距離
+        (dcd_x, dcd_y): x到y和y到x的密度倒角距離
     """
     x = x.to(x.device)
     y = y.to(y.device)
@@ -131,46 +131,46 @@ def density_chamfer_distance(x, y, k=8, density_method='knn', alpha=1.0, beta=1.
         raise ValueError(f"Expected 3D tensors, got x: {x.shape}, y: {y.shape}")
     batch_size = x.size(0)
     
-    # 计算局部密度
+    # 計算局部密度
     density_x = compute_local_density(x, k=k, method=density_method)  # [B, N]
     density_y = compute_local_density(y, k=k, method=density_method)  # [B, M]
     
-    # 归一化密度到 [0, 1] 范围
+    # 歸一化密度到 [0, 1] 範圍
     density_x = F.normalize(density_x, p=1, dim=1)
     density_y = F.normalize(density_y, p=1, dim=1)
     
-    # 计算点对点距离矩阵
+    # 計算點對點距離矩陣
     xx = torch.sum(x ** 2, dim=2, keepdim=True)  # [B, N, 1]
     yy = torch.sum(y ** 2, dim=2, keepdim=True)  # [B, M, 1]
     xy = torch.bmm(x, y.transpose(1, 2))  # [B, N, M]
     dist_matrix = xx - 2 * xy + yy.transpose(1, 2)  # [B, N, M]
     dist_matrix = torch.sqrt(dist_matrix.clamp(min=1e-7))
     
-    # 从 x 到 y 的密度倒角距离
+    # 從 x 到 y 的密度倒角距離
     min_dist_x2y, min_idx_x2y = torch.min(dist_matrix, dim=2)  # [B, N]
     
-    # 获取对应的密度值
+    # 取得對應的密度值
     batch_idx = torch.arange(batch_size).unsqueeze(1).expand(-1, x.size(1))  # [B, N]
     corresponding_density_y = density_y[batch_idx, min_idx_x2y]  # [B, N]
     
-    # 计算密度加权的距离
-    density_weight_x2y = (density_x + corresponding_density_y) / 2.0  # 平均密度作为权重
+    # 計算密度加權的距離
+    density_weight_x2y = (density_x + corresponding_density_y) / 2.0  # 平均密度作為權重
     weighted_dist_x2y = min_dist_x2y * (alpha + beta * density_weight_x2y)
     dcd_x2y = torch.mean(weighted_dist_x2y, dim=1)  # [B]
     
-    # 从 y 到 x 的密度倒角距离
+    # 從 y 到 x 的密度倒角距離
     min_dist_y2x, min_idx_y2x = torch.min(dist_matrix.transpose(1, 2), dim=2)  # [B, M]
     
-    # 获取对应的密度值
+    # 取得對應的密度值
     batch_idx = torch.arange(batch_size).unsqueeze(1).expand(-1, y.size(1))  # [B, M]
     corresponding_density_x = density_x[batch_idx, min_idx_y2x]  # [B, M]
     
-    # 计算密度加权的距离
+    # 計算密度加權的距離
     density_weight_y2x = (density_y + corresponding_density_x) / 2.0
     weighted_dist_y2x = min_dist_y2x * (alpha + beta * density_weight_y2x)
     dcd_y2x = torch.mean(weighted_dist_y2x, dim=1)  # [B]
     
-    # 总的密度倒角距离
+    # 總的密度倒角距離
     total_dcd = torch.mean(dcd_x2y + dcd_y2x)
     
     return total_dcd, (torch.mean(dcd_x2y), torch.mean(dcd_y2x))
@@ -178,23 +178,23 @@ def density_chamfer_distance(x, y, k=8, density_method='knn', alpha=1.0, beta=1.
 
 def adaptive_density_chamfer_distance(x, y, k=8, density_method='knn', adaptive_weight=True):
     """
-    自适应密度倒角距离 - 根据点云特性自动调整权重
+    自適應密度倒角距離 - 根據點雲特性自動調整權重
     
     Args:
-        x: 源点云 [B, N, 3]
-        y: 目标点云 [B, M, 3]
-        k: 邻居数量
-        density_method: 密度计算方法
-        adaptive_weight: 是否使用自适应权重
+        x: 原始點雲 [B, N, 3]
+        y: 目標點雲 [B, M, 3]
+        k: 鄰居數量
+        density_method: 密度計算方法
+        adaptive_weight: 是否使用自適應權重
     
     Returns:
-        total_dcd: 总的密度倒角距离
-        details: 详细信息字典
+        total_dcd: 總的密度倒角距離
+        details: 詳細資訊字典
     """
     x = x.to(x.device)
     y = y.to(y.device)
     
-    # 计算传统的 Chamfer Distance 作为基准
+    # 計算傳統的 Chamfer Distance 作為基準
     xx = torch.sum(x ** 2, dim=2, keepdim=True)
     yy = torch.sum(y ** 2, dim=2, keepdim=True)
     xy = torch.bmm(x, y.transpose(1, 2))
@@ -205,24 +205,24 @@ def adaptive_density_chamfer_distance(x, y, k=8, density_method='knn', adaptive_
     traditional_cd_y = torch.mean(torch.min(dist_matrix.transpose(1, 2), dim=2)[0], dim=1)
     traditional_cd = torch.mean(traditional_cd_x + traditional_cd_y)
     
-    # 计算密度
+    # 計算密度
     density_x = compute_local_density(x, k=k, method=density_method)
     density_y = compute_local_density(y, k=k, method=density_method)
     
-    # 计算密度变异系数（衡量密度分布的不均匀程度）
+    # 計算密度變異係數（衡量密度分布的不均勻程度）
     cv_x = torch.std(density_x, dim=1) / (torch.mean(density_x, dim=1) + 1e-8)
     cv_y = torch.std(density_y, dim=1) / (torch.mean(density_y, dim=1) + 1e-8)
     avg_cv = torch.mean(cv_x + cv_y)
     
     if adaptive_weight:
-        # 根据密度变异系数自适应调整权重
-        # 密度变化大的点云需要更强的密度权重
+        # 根據密度變異係數自適應調整權重
+        # 密度變化大的點雲需要更強的密度權重
         alpha = 1.0
         beta = torch.clamp(avg_cv, min=0.1, max=2.0)
     else:
         alpha, beta = 1.0, 1.0
     
-    # 计算 DCD
+    # 計算DCD
     dcd, (dcd_x, dcd_y) = density_chamfer_distance(x, y, k, density_method, alpha, beta)
     
     details = {
@@ -252,7 +252,7 @@ def estimate_normals(points, k=8):
         cov = np.cov(neighbors.T)
         eig_vals, eig_vecs = np.linalg.eigh(cov)
         normal = eig_vecs[:, 0]  # 最小特徵值對應向量
-        # 統一方向（可根據你場景調整, 例如 z>0）
+        # 統一方向（可根據你場景調整，例如 z>0）
         if normal[2] < 0:
             normal = -normal
         normals.append(normal)
@@ -354,15 +354,15 @@ def compute_local_structure_loss(recon_points, target_points, k=16):
     try:
         B, N, _ = recon_points.shape
         
-        # 計算每個點的k近鄰
+    # 計算每個點的k近鄰
         recon_dist = torch.cdist(recon_points, recon_points)  # [B, N, N]
         target_dist = torch.cdist(target_points, target_points)
         
-        # 獲取k近鄰距離
+    # 取得k近鄰距離
         recon_knn_dist = torch.topk(recon_dist, k+1, dim=-1, largest=False)[0][:, :, 1:]  # 排除自己
         target_knn_dist = torch.topk(target_dist, k+1, dim=-1, largest=False)[:, :, 1:]
         
-        # 計算距離差異
+    # 計算距離差異
         structure_loss = F.mse_loss(recon_knn_dist, target_knn_dist)
         
         return structure_loss
@@ -422,17 +422,17 @@ def compute_multiscale_structure_loss_v2(recon_points, target_points):
 def compute_boundary_preservation_loss(recon_points, target_points):
     """邊界保持損失 - 對雙層結構重要"""
     try:
-        # 計算點到質心的距離分布
+    # 計算點到質心的距離分布
         recon_center = torch.mean(recon_points, dim=1, keepdim=True)
         target_center = torch.mean(target_points, dim=1, keepdim=True)
         
         recon_radial = torch.norm(recon_points - recon_center, dim=-1)
         target_radial = torch.norm(target_points - target_center, dim=-1)
         
-        # 保持徑向分布
+    # 保持徑向分布
         radial_loss = F.mse_loss(recon_radial, target_radial)
         
-        # 保持高度分布（Z軸）
+    # 保持高度分布（Z軸）
         recon_z = recon_points[:, :, 2]
         target_z = target_points[:, :, 2]
         height_loss = F.mse_loss(recon_z, target_z)
@@ -471,10 +471,10 @@ def stratified_uniform_loss(pc, k=8):
     loss = 0.0
     for mask in [upper_mask, lower_mask]:
         pc_sub = torch.where(mask.unsqueeze(-1), pc, torch.zeros_like(pc))
-        # 選出本層
+    # 選出本層
         n_sub = mask.sum(dim=1).clamp(min=2)
-        # 只優化真有點的batch
-        # knn loss（只對非零的部分）
+    # 只優化真有點的batch
+    # knn loss（只對非零的部分）
         for b in range(pc.shape[0]):
             sel = pc_sub[b][mask[b]]
             if sel.shape[0] > 1:
@@ -491,18 +491,18 @@ def compute_layer_balance_loss(recon_points, target_points):
     層間密度平衡損失 - 確保上下層點數相近
     """
     try:
-        # 按Z軸中位數分上下層
+    # 按Z軸中位數分上下層
         z_coords = recon_points[:, :, 2]  # [B, N]
         z_median = torch.median(z_coords, dim=1, keepdim=True)[0]  # [B, 1]
         
-        # 分層計算點數
+    # 分層計算點數
         upper_mask = z_coords > z_median  # [B, N]
         lower_mask = z_coords <= z_median
         
         upper_count = upper_mask.float().sum(dim=1)  # [B]
         lower_count = lower_mask.float().sum(dim=1)
         
-        # 目標：上下層點數比例接近1:1
+    # 目標：上下層點數比例接近1:1
         target_ratio = torch.ones_like(upper_count)
         actual_ratio = upper_count / (lower_count + 1e-8)
         
