@@ -4,8 +4,6 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 def chamfer_distance(x, y):
-    # x: [B, N, 3]
-    # y: [B, M, 3]
     dist = torch.cdist(x, y)      # [B, N, M]
     x_y = dist.min(dim=2)[0]      # [B, N]
     y_x = dist.min(dim=1)[0]     # [B, M]
@@ -17,8 +15,8 @@ def chamfer_distance(x, y):
 
 def chamfer_distance2(x, y):
     """
-    計算 Chamfer Distance
-    回傳: (總距離, (x到y的距離, y到x的距離))
+    Computes the Chamfer Distance between two point clouds.
+    Returns: (total_distance, (x_to_y_distance, y_to_x_distance))
     """
     x = x.to(device)
     y = y.to(device)
@@ -28,8 +26,7 @@ def chamfer_distance2(x, y):
     yy = torch.sum(y ** 2, dim=2, keepdim=True)  # [B, M, 1]
     xy = torch.bmm(x, y.transpose(1, 2))  # [B, N, M]
     dist = xx - 2 * xy + yy.transpose(1, 2)  # [B, N, M]
-    dist = torch.sqrt(dist.clamp(min=1e-7))  # 避免 sqrt 負值，取平方根
-    # 找到最近距離
+    dist = torch.sqrt(dist.clamp(min=1e-7))
     dist_x = torch.min(dist, dim=2, keepdim=True)[0]  # [B, N, 1]
     dist_y = torch.min(dist.transpose(1, 2), dim=2, keepdim=True)[0].transpose(1, 2)  # [B, M, 1] -> [B, 1, M] -> [B, M, 1]
     
@@ -43,15 +40,15 @@ def chamfer_distance2(x, y):
 
 def compute_local_density(points, k=8, method='knn'):
     """
-    計算點雲的局部密度
-    
+    Computes the local density of a point cloud.
+
     Args:
-        points: 點雲張量 [B, N, 3] 或 [N, 3]
-        k: 用於密度計算的鄰居數量
-        method: 密度計算方法 ('knn', 'gaussian', 'inverse_distance')
-    
+        points: Point cloud tensor of shape [B, N, 3] or [N, 3]
+        k: Number of neighbors used for density estimation
+        method: Density estimation method ('knn', 'gaussian', 'inverse_distance')
+
     Returns:
-        density: 每個點的局部密度 [B, N] 或 [N]
+        density: Per-point local density of shape [B, N] or [N]
     """
     if points.dim() == 3:
         batch_size, num_points, _ = points.shape
@@ -68,37 +65,33 @@ def compute_local_density(points, k=8, method='knn'):
 
 def compute_single_density(points, k=8, method='knn'):
     """
-    計算單個點雲的局部密度
-    
+    Computes the local density for a single point cloud.
+
     Args:
-        points: 點雲張量 [N, 3]
-        k: 鄰居數量
-        method: 密度計算方法
-    
+        points: Point cloud tensor of shape [N, 3]
+        k: Number of neighbors
+        method: Density estimation method
+
     Returns:
-        density: 每個點的局部密度 [N]
+        density: Per-point local density of shape [N]
     """
     device = points.device
     points_np = points.detach().cpu().numpy()
     
-    # 使用 KDTree 查找鄰居
     tree = cKDTree(points_np)
-    distances, indices = tree.query(points_np, k=k+1)  # +1 因為包含自己
-    distances = distances[:, 1:]  # 排除自己
+    distances, indices = tree.query(points_np, k=k+1)
+    distances = distances[:, 1:]
     
     if method == 'knn':
-        # 基於 k 鄰居平均距離的密度
         mean_distances = np.mean(distances, axis=1)
         density = 1.0 / (mean_distances + 1e-8)
         
     elif method == 'gaussian':
-        # 基於高斯核的密度
-        sigma = np.mean(distances[:, -1])  # 使用最遠鄰居距離作為 sigma
+        sigma = np.mean(distances[:, -1])
         weights = np.exp(-distances**2 / (2 * sigma**2))
         density = np.sum(weights, axis=1)
         
     elif method == 'inverse_distance':
-        # 基於距離倒數的密度
         inv_distances = 1.0 / (distances + 1e-8)
         density = np.sum(inv_distances, axis=1)
     
@@ -110,67 +103,56 @@ def compute_single_density(points, k=8, method='knn'):
 
 def density_chamfer_distance(x, y, k=8, density_method='knn', alpha=1.0, beta=1.0):
     """
-    計算 Density Chamfer Distance (DCD)
-    
+    Computes the Density-aware Chamfer Distance (DCD) between two point clouds.
+
     Args:
-        x: 原始點雲 [B, N, 3]
-        y: 目標點雲 [B, M, 3]
-        k: 用於密度計算的鄰居數量
-        density_method: 密度計算方法 ('knn', 'gaussian', 'inverse_distance')
-        alpha: 距離項權重
-        beta: 密度項權重
-    
+        x: Source point cloud of shape [B, N, 3]
+        y: Target point cloud of shape [B, M, 3]
+        k: Number of neighbors for density estimation
+        density_method: Density estimation method ('knn', 'gaussian', 'inverse_distance')
+        alpha: Weight for the distance term
+        beta: Weight for the density term
+
     Returns:
-        total_dcd: 總的密度倒角距離
-        (dcd_x, dcd_y): x到y和y到x的密度倒角距離
+        total_dcd: Total density-aware Chamfer distance
+        (dcd_x, dcd_y): Density-weighted distances from x to y and y to x
     """
     x = x.to(x.device)
     y = y.to(y.device)
-    # 添加形狀檢查
     if x.dim() != 3 or y.dim() != 3:
         raise ValueError(f"Expected 3D tensors, got x: {x.shape}, y: {y.shape}")
     batch_size = x.size(0)
     
-    # 計算局部密度
     density_x = compute_local_density(x, k=k, method=density_method)  # [B, N]
     density_y = compute_local_density(y, k=k, method=density_method)  # [B, M]
     
-    # 歸一化密度到 [0, 1] 範圍
     density_x = F.normalize(density_x, p=1, dim=1)
     density_y = F.normalize(density_y, p=1, dim=1)
     
-    # 計算點對點距離矩陣
     xx = torch.sum(x ** 2, dim=2, keepdim=True)  # [B, N, 1]
     yy = torch.sum(y ** 2, dim=2, keepdim=True)  # [B, M, 1]
     xy = torch.bmm(x, y.transpose(1, 2))  # [B, N, M]
     dist_matrix = xx - 2 * xy + yy.transpose(1, 2)  # [B, N, M]
     dist_matrix = torch.sqrt(dist_matrix.clamp(min=1e-7))
     
-    # 從 x 到 y 的密度倒角距離
     min_dist_x2y, min_idx_x2y = torch.min(dist_matrix, dim=2)  # [B, N]
     
-    # 取得對應的密度值
     batch_idx = torch.arange(batch_size).unsqueeze(1).expand(-1, x.size(1))  # [B, N]
     corresponding_density_y = density_y[batch_idx, min_idx_x2y]  # [B, N]
     
-    # 計算密度加權的距離
-    density_weight_x2y = (density_x + corresponding_density_y) / 2.0  # 平均密度作為權重
+    density_weight_x2y = (density_x + corresponding_density_y) / 2.0
     weighted_dist_x2y = min_dist_x2y * (alpha + beta * density_weight_x2y)
     dcd_x2y = torch.mean(weighted_dist_x2y, dim=1)  # [B]
     
-    # 從 y 到 x 的密度倒角距離
     min_dist_y2x, min_idx_y2x = torch.min(dist_matrix.transpose(1, 2), dim=2)  # [B, M]
     
-    # 取得對應的密度值
     batch_idx = torch.arange(batch_size).unsqueeze(1).expand(-1, y.size(1))  # [B, M]
     corresponding_density_x = density_x[batch_idx, min_idx_y2x]  # [B, M]
     
-    # 計算密度加權的距離
     density_weight_y2x = (density_y + corresponding_density_x) / 2.0
     weighted_dist_y2x = min_dist_y2x * (alpha + beta * density_weight_y2x)
     dcd_y2x = torch.mean(weighted_dist_y2x, dim=1)  # [B]
     
-    # 總的密度倒角距離
     total_dcd = torch.mean(dcd_x2y + dcd_y2x)
     
     return total_dcd, (torch.mean(dcd_x2y), torch.mean(dcd_y2x))
@@ -178,23 +160,23 @@ def density_chamfer_distance(x, y, k=8, density_method='knn', alpha=1.0, beta=1.
 
 def adaptive_density_chamfer_distance(x, y, k=8, density_method='knn', adaptive_weight=True):
     """
-    自適應密度倒角距離 - 根據點雲特性自動調整權重
-    
+    Computes the Adaptive Density-aware Chamfer Distance, automatically adjusting
+    weights based on the statistical properties of the input point clouds.
+
     Args:
-        x: 原始點雲 [B, N, 3]
-        y: 目標點雲 [B, M, 3]
-        k: 鄰居數量
-        density_method: 密度計算方法
-        adaptive_weight: 是否使用自適應權重
-    
+        x: Source point cloud of shape [B, N, 3]
+        y: Target point cloud of shape [B, M, 3]
+        k: Number of neighbors
+        density_method: Density estimation method
+        adaptive_weight: Whether to use adaptive weight adjustment
+
     Returns:
-        total_dcd: 總的密度倒角距離
-        details: 詳細資訊字典
+        total_dcd: Total density-aware Chamfer distance
+        details: Dictionary containing diagnostic information
     """
     x = x.to(x.device)
     y = y.to(y.device)
     
-    # 計算傳統的 Chamfer Distance 作為基準
     xx = torch.sum(x ** 2, dim=2, keepdim=True)
     yy = torch.sum(y ** 2, dim=2, keepdim=True)
     xy = torch.bmm(x, y.transpose(1, 2))
@@ -205,24 +187,19 @@ def adaptive_density_chamfer_distance(x, y, k=8, density_method='knn', adaptive_
     traditional_cd_y = torch.mean(torch.min(dist_matrix.transpose(1, 2), dim=2)[0], dim=1)
     traditional_cd = torch.mean(traditional_cd_x + traditional_cd_y)
     
-    # 計算密度
     density_x = compute_local_density(x, k=k, method=density_method)
     density_y = compute_local_density(y, k=k, method=density_method)
     
-    # 計算密度變異係數（衡量密度分布的不均勻程度）
     cv_x = torch.std(density_x, dim=1) / (torch.mean(density_x, dim=1) + 1e-8)
     cv_y = torch.std(density_y, dim=1) / (torch.mean(density_y, dim=1) + 1e-8)
     avg_cv = torch.mean(cv_x + cv_y)
     
     if adaptive_weight:
-        # 根據密度變異係數自適應調整權重
-        # 密度變化大的點雲需要更強的密度權重
         alpha = 1.0
         beta = torch.clamp(avg_cv, min=0.1, max=2.0)
     else:
         alpha, beta = 1.0, 1.0
     
-    # 計算DCD
     dcd, (dcd_x, dcd_y) = density_chamfer_distance(x, y, k, density_method, alpha, beta)
     
     details = {
@@ -239,20 +216,23 @@ def adaptive_density_chamfer_distance(x, y, k=8, density_method='knn', adaptive_
 
 def estimate_normals(points, k=8):
     """
-    使用 KDTree 估算法向量
-    points: (N, 3) numpy array
-    k: 鄰居點數量
-    回傳: (N, 3) numpy array, 每個點的法向量
+    Estimates surface normals using a KDTree-based local neighborhood analysis.
+
+    Args:
+        points: Input point cloud as a numpy array of shape (N, 3)
+        k: Number of neighbor points used for covariance estimation
+
+    Returns:
+        normals: Estimated normals as a numpy array of shape (N, 3)
     """
     tree = cKDTree(points)
     normals = []
     for i in range(len(points)):
-        _, idxs = tree.query(points[i], k + 1)  # 取自己+K個鄰居
-        neighbors = points[idxs[1:]]  # 移除自身，只保留鄰居
+        _, idxs = tree.query(points[i], k + 1)
+        neighbors = points[idxs[1:]]
         cov = np.cov(neighbors.T)
         eig_vals, eig_vecs = np.linalg.eigh(cov)
-        normal = eig_vecs[:, 0]  # 最小特徵值對應向量
-        # 統一方向（可根據你場景調整，例如 z>0）
+        normal = eig_vecs[:, 0]
         if normal[2] < 0:
             normal = -normal
         normals.append(normal)
@@ -261,9 +241,15 @@ def estimate_normals(points, k=8):
 
 def normal_consistency_loss(pred_points, gt_points, k=8):
     """
-    計算法向量一致性損失
-    pred_points, gt_points: Tensor, 形狀 (B, N, 3)
-    回傳: scalar Tensor (loss)
+    Computes normal consistency loss between predicted and ground-truth point clouds
+    using numpy-based normal estimation.
+
+    Args:
+        pred_points: Predicted point cloud tensor of shape (B, N, 3)
+        gt_points: Ground-truth point cloud tensor of shape (B, N, 3)
+
+    Returns:
+        loss: Scalar tensor representing the mean normal inconsistency
     """
     batch_size, num_points, _ = pred_points.shape
     total_loss = 0.0
@@ -280,18 +266,26 @@ def normal_consistency_loss(pred_points, gt_points, k=8):
 
 
 def torch_normal_consistency_loss(pred_points, gt_points, k=8):
-    # pred_points/gt_points: [B, N, 3]
+    """
+    Computes normal consistency loss entirely in PyTorch without numpy conversion,
+    enabling end-to-end gradient flow.
+
+    Args:
+        pred_points: Predicted point cloud tensor of shape [B, N, 3]
+        gt_points: Ground-truth point cloud tensor of shape [B, N, 3]
+
+    Returns:
+        loss: Scalar tensor representing the mean normal inconsistency
+    """
     B, N, _ = pred_points.shape
     def get_normals(pc):
-        # pc: [N, 3]
         dists = torch.cdist(pc.unsqueeze(0), pc.unsqueeze(0))[0]   # [N, N]
         knn_idx = dists.topk(k+1, dim=-1, largest=False).indices[:, 1:]  # [N, k]
-        # neighbors = torch.stack([pc[idx] for idx in knn_idx], dim=0)  # [N, k, 3]
         neighbors = pc[knn_idx] # (N, k, 3)
         mean_neigh = neighbors.mean(dim=1, keepdim=True)             # [N, 1, 3]
         cov = (neighbors - mean_neigh).transpose(1,2) @ (neighbors - mean_neigh)  # [N, 3, 3]
         eigvals, eigvecs = torch.linalg.eigh(cov)                    # [N, 3], [N, 3, 3]
-        normals = eigvecs[:, :, 0]                                   # [N, 3]，對應最小特徵值
+        normals = eigvecs[:, :, 0]                                   # [N, 3]
         return normals
     loss = 0
     for b in range(B):
@@ -304,12 +298,10 @@ def torch_normal_consistency_loss(pred_points, gt_points, k=8):
 
 
 def compute_scale_consistency_loss(recon_points, target_points):
-    """計算尺度一致性損失"""
-    # 計算點雲的尺度
+    """Computes scale consistency loss between reconstructed and target point clouds."""
     recon_scale = torch.sqrt(torch.sum(recon_points**2, dim=-1)).max(dim=-1)[0]
     target_scale = torch.sqrt(torch.sum(target_points**2, dim=-1)).max(dim=-1)
     
-    # 尺度比例損失
     scale_ratio = recon_scale / (target_scale + 1e-8)
     scale_loss = F.mse_loss(scale_ratio, torch.ones_like(scale_ratio))
     
@@ -317,52 +309,44 @@ def compute_scale_consistency_loss(recon_points, target_points):
 
 
 def compute_scale_consistency_loss_v2(recon_points, target_points):
-    """增強的尺度損失 - 多維度約束"""
-    # 1. 整體尺度約束
+    """Enhanced scale consistency loss with multi-dimensional constraints to prevent shape degeneracy."""
     recon_scale = torch.norm(recon_points, dim=-1).max(dim=-1)[0]
     target_scale = torch.norm(target_points, dim=-1).max(dim=-1)[0]
     global_scale_loss = F.mse_loss(recon_scale, target_scale)
     
-    # 2. 各軸向尺度約束（重要！防止圓形化）
     recon_ranges = recon_points.max(dim=1)[0] - recon_points.min(dim=1)[0]  # [B, 3]
     target_ranges = target_points.max(dim=1)[0] - target_points.min(dim=1)[0]
     axis_scale_loss = F.mse_loss(recon_ranges, target_ranges)
     
-    return global_scale_loss + axis_scale_loss * 2.0  # 強調軸向約束
+    return global_scale_loss + axis_scale_loss * 2.0
 
 
 def compute_latent_regularization(latent_z):
-    """潛在空間正則化"""
-    # L2正則化
+    """Computes latent space regularization combining L2 and L1 sparsity penalties."""
     l2_reg = torch.mean(torch.sum(latent_z**2, dim=-1))
     
-    # 稀疏性正則化
     l1_reg = torch.mean(torch.sum(torch.abs(latent_z), dim=-1))
     
     return 0.8 * l2_reg + 0.2 * l1_reg
 
 
 def compute_latent_regularization_v2(latent_z):
-    """輕量化正則化 - 減少過度約束"""
-    # 只使用L2正則化，移除L1稀疏性約束
+    """Lightweight latent space regularization using only L2 penalty to reduce over-constraint."""
     l2_reg = torch.mean(torch.sum(latent_z**2, dim=-1))
-    return 0.5 * l2_reg  # 權重減半
+    return 0.5 * l2_reg
 
 
 def compute_local_structure_loss(recon_points, target_points, k=16):
-    """計算局部結構保持損失"""
+    """Computes local structural preservation loss based on k-nearest neighbor distance distributions."""
     try:
         B, N, _ = recon_points.shape
         
-    # 計算每個點的k近鄰
         recon_dist = torch.cdist(recon_points, recon_points)  # [B, N, N]
         target_dist = torch.cdist(target_points, target_points)
         
-    # 取得k近鄰距離
-        recon_knn_dist = torch.topk(recon_dist, k+1, dim=-1, largest=False)[0][:, :, 1:]  # 排除自己
+        recon_knn_dist = torch.topk(recon_dist, k+1, dim=-1, largest=False)[0][:, :, 1:]
         target_knn_dist = torch.topk(target_dist, k+1, dim=-1, largest=False)[:, :, 1:]
         
-    # 計算距離差異
         structure_loss = F.mse_loss(recon_knn_dist, target_knn_dist)
         
         return structure_loss
@@ -372,13 +356,12 @@ def compute_local_structure_loss(recon_points, target_points, k=16):
 
 
 def compute_multiscale_structure_loss(recon_points, target_points):
-    """多尺度結構保持損失"""
+    """Computes multi-scale structural preservation loss across multiple neighborhood sizes."""
     total_loss = 0
-    scales = [8, 16, 32]  # 不同鄰域大小
+    scales = [8, 16, 32]
     
     for k in scales:
         try:
-            # 計算不同尺度的局部結構
             recon_dist = torch.cdist(recon_points, recon_points)
             target_dist = torch.cdist(target_points, target_points)
             
@@ -393,9 +376,9 @@ def compute_multiscale_structure_loss(recon_points, target_points):
     return total_loss
 
 def compute_multiscale_structure_loss_v2(recon_points, target_points):
-    """簡化的多尺度結構損失"""
+    """Simplified multi-scale structural loss with reduced scales for improved computational efficiency."""
     total_loss = 0
-    scales = [8, 16]  # 減少到2個尺度，降低計算量
+    scales = [8, 16]
     
     for k in scales:
         try:
@@ -407,7 +390,6 @@ def compute_multiscale_structure_loss_v2(recon_points, target_points):
             target_knn = torch.topk(target_dist, min(k+1, target_points.shape[1]), 
                                   dim=-1, largest=False)[0][:, :, 1:]
             
-            # 確保形狀匹配
             min_neighbors = min(recon_knn.shape[-1], target_knn.shape[-1])
             recon_knn = recon_knn[:, :, :min_neighbors]
             target_knn = target_knn[:, :, :min_neighbors]
@@ -420,24 +402,21 @@ def compute_multiscale_structure_loss_v2(recon_points, target_points):
     return total_loss
 
 def compute_boundary_preservation_loss(recon_points, target_points):
-    """邊界保持損失 - 對雙層結構重要"""
+    """Computes boundary preservation loss critical for maintaining double-layer point cloud structures."""
     try:
-    # 計算點到質心的距離分布
         recon_center = torch.mean(recon_points, dim=1, keepdim=True)
         target_center = torch.mean(target_points, dim=1, keepdim=True)
         
         recon_radial = torch.norm(recon_points - recon_center, dim=-1)
         target_radial = torch.norm(target_points - target_center, dim=-1)
         
-    # 保持徑向分布
         radial_loss = F.mse_loss(recon_radial, target_radial)
         
-    # 保持高度分布（Z軸）
         recon_z = recon_points[:, :, 2]
         target_z = target_points[:, :, 2]
         height_loss = F.mse_loss(recon_z, target_z)
         
-        return radial_loss + height_loss * 2.0  # 強調高度保持
+        return radial_loss + height_loss * 2.0
         
     except:
         return torch.tensor(0.0).to(recon_points.device)
@@ -445,14 +424,17 @@ def compute_boundary_preservation_loss(recon_points, target_points):
 
 def point_cloud_uniform_loss(pc, k=8, alpha=0.7):
     """
-    提升均勻性損失：結合k鄰域標準差均值與最大值
-    均勻性是所有點的k鄰域距離的變異數愈小愈好
-    alpha（0~1）：控制最大值懲罰強度，值大則懲罰越不均情況
+    Computes a uniformity loss that penalizes uneven point distributions by combining
+    the mean and maximum of per-point k-neighbor distance standard deviations.
+
+    Args:
+        pc: Input point cloud tensor of shape [B, N, 3]
+        k: Number of neighbors for local distribution analysis
+        alpha: Weight controlling the penalty strength on the maximum deviation term
     """
-    # pc: [B,N,3]
     dist = torch.cdist(pc, pc)  # [B,N,N]
     knn_dist, _ = dist.topk(k+1, dim=-1, largest=False)  # [B,N,k+1]
-    knn_dist = knn_dist[:,:,1:]  # 排除自己本身
+    knn_dist = knn_dist[:,:,1:]
     std_dist = knn_dist.std(dim=-1)    # [B,N]
     mean_loss = std_dist.mean()
     max_loss = std_dist.max()
@@ -461,8 +443,8 @@ def point_cloud_uniform_loss(pc, k=8, alpha=0.7):
 
 
 def stratified_uniform_loss(pc, k=8):
-    "層內均勻性：在每個層內各自施以均勻懲罰（而不是全域）"
-    # pc: [B, N, 3]
+    """Computes intra-layer uniformity loss by applying separate uniformity penalties
+    to the upper and lower strata of the point cloud partitioned by the median Z-coordinate."""
     z_coords = pc[:, :, 2]
     z_median = torch.median(z_coords, dim=1, keepdim=True)[0]
     upper_mask = z_coords > z_median
@@ -471,10 +453,7 @@ def stratified_uniform_loss(pc, k=8):
     loss = 0.0
     for mask in [upper_mask, lower_mask]:
         pc_sub = torch.where(mask.unsqueeze(-1), pc, torch.zeros_like(pc))
-    # 選出本層
         n_sub = mask.sum(dim=1).clamp(min=2)
-    # 只優化真有點的batch
-    # knn loss（只對非零的部分）
         for b in range(pc.shape[0]):
             sel = pc_sub[b][mask[b]]
             if sel.shape[0] > 1:
@@ -482,27 +461,25 @@ def stratified_uniform_loss(pc, k=8):
                 knn = dist.topk(min(k+1, sel.shape[0]), largest=False)[0][:, 1:]
                 std = knn.std(dim=-1).mean()
                 loss += std
-    return loss / (2 * pc.shape[0])   # 兩層分開平均
+    return loss / (2 * pc.shape[0])
 
 
 
 def compute_layer_balance_loss(recon_points, target_points):
     """
-    層間密度平衡損失 - 確保上下層點數相近
+    Computes an inter-layer density balance loss to ensure approximately equal
+    point distribution between the upper and lower halves of the point cloud.
     """
     try:
-    # 按Z軸中位數分上下層
         z_coords = recon_points[:, :, 2]  # [B, N]
         z_median = torch.median(z_coords, dim=1, keepdim=True)[0]  # [B, 1]
         
-    # 分層計算點數
         upper_mask = z_coords > z_median  # [B, N]
         lower_mask = z_coords <= z_median
         
         upper_count = upper_mask.float().sum(dim=1)  # [B]
         lower_count = lower_mask.float().sum(dim=1)
         
-    # 目標：上下層點數比例接近1:1
         target_ratio = torch.ones_like(upper_count)
         actual_ratio = upper_count / (lower_count + 1e-8)
         
@@ -512,8 +489,3 @@ def compute_layer_balance_loss(recon_points, target_points):
         
     except:
         return torch.tensor(0.0, device=recon_points.device, requires_grad=True)
-
-
-
-# def test(x=696):
-#     print(f"testing... {x}")
