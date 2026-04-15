@@ -55,6 +55,7 @@ Expected Outcomes:
 ```
 Pretrained AutoEncoder Output:
 <img src="images/PAE_Generate.png" height="500" style="margin-right:50px;">
+
 Diffusion Model Output:
 <img src="images/Diffusion_Generate.png" height="500" style="margin-right:50px;">
 
