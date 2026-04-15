@@ -15,7 +15,7 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 --- 
 
 ## Framework  
-<img src="images/Framework.png" alt="Framework" height="450" style="margin-right:50px;">
+<img src="images/Diagram.png" alt="Framework" height="450" style="margin-right:50px;">
 
 ---
 
