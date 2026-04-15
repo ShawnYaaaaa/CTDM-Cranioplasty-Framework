@@ -54,6 +54,7 @@ Expected Outcomes:
 - Enhanced decision-making accuracy for cranioplasty procedures.  
 ```
 
-<img src="images/Results_LDM.png" height="500" style="margin-right:50px;">
+<img src="images/PAE_Generate.png" height="500" style="margin-right:50px;">
+<img src="images/Diffusion_Generate.png" height="500" style="margin-right:50px;">
 
 ---
