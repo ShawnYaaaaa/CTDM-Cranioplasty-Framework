@@ -33,8 +33,8 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 
 ---
 
-## Image Processing:
-nrrd -> stl -> xyz
+## Image Processing
+nrrd -> stl -> xyz:
 <img src="images/Image_processing.png" height="350" style="margin-right:50px;">
 
  ---
