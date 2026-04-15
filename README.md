@@ -53,8 +53,9 @@ Expected Outcomes:
 - Reduced burden on medical professionals with accelerated preoperative planning.  
 - Enhanced decision-making accuracy for cranioplasty procedures.  
 ```
-
+Pretrained AutoEncoder Output:
 <img src="images/PAE_Generate.png" height="500" style="margin-right:50px;">
+Diffusion Model Output:
 <img src="images/Diffusion_Generate.png" height="500" style="margin-right:50px;">
 
 ---
