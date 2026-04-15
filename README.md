@@ -33,17 +33,11 @@ To address these challenges, we propose the **Cranioplasty Transformer Diffusion
 
 ---
 
-## Sample Images
-nrrd image:  
-<img src="images/ITK-SNAP_for_nrrd.png" height="350" style="margin-right:50px;">
+## Image Processing:
+nrrd -> stl -> xyz
+<img src="images/Image_processing.png" height="350" style="margin-right:50px;">
 
-stl image:  
-<img src="images/Blender_for_stl.png" height="350" style="margin-right:50px;">
-
-xyz image:  
-<img src="images/Open3D_for_xyz.png" height="350" style="margin-right:50px;">
-
----
+ ---
 
 ## Performance
 Expected Outcomes:
